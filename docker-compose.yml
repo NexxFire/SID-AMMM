@@ -1,0 +1,43 @@
+# This is a Docker Compose file to set up two MySQL containers with different configurations.
+
+services:
+  db-transaction:
+    image: mysql:latest
+    container_name: db-transaction
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+    volumes:
+      - ./sql-init/transaction:/docker-entrypoint-initdb.d
+    ports:
+      - "3307:3306"  # port local:container
+    restart: unless-stopped
+
+  db-decision:
+    image: mysql:latest
+    container_name: db-decision
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - ./sql-init/decision:/docker-entrypoint-initdb.d
+    ports:
+      - "3308:3306"
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    environment:
+      PMA_ARBITRARY: 1
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    depends_on:
+      - db-transaction
+      - db-decision
