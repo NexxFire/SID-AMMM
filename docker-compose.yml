@@ -2,7 +2,7 @@
 
 services:
   db-transaction:
-    image: mysql:latest
+    image: mariadb:latest
     container_name: db-transaction
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
 
   db-decision:
-    image: mysql:latest
+    image: mariadb:latest
     container_name: db-decision
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
