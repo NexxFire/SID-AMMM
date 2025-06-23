@@ -34,8 +34,6 @@ def create_comptes(cursor, id_user):
     comptes_info = [
         ("Compte courant personnel", "BNP Paribas"),
         ("Compte epargne", "Credit Agricole"),
-        ("Compte commun", "Societe Generale"),
-        ("Compte crypto", "Revolut")
     ]
     id_comptes = []
 
@@ -52,9 +50,8 @@ def create_comptes(cursor, id_user):
 def create_categories(cursor):
     categories = {
         "Alimentation": ["Courses", "Restaurants"],
-        "Transport": ["Essence", "Train", "Velo"],
+        "Transport": ["Essence", "Train"],
         "Loisirs": ["Cinema", "Jeux", "Voyages"],
-        "Sante": ["Medecin", "Pharmacie"],
         "Logement": ["Loyer", "electricite", "Internet"],
         "Revenus": ["Salaire", "Allocations", ],
         "Epargne": []
@@ -100,19 +97,21 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
     salaire_tiers = get_or_create_tiers(cursor, "Entreprise XYZ", id_user)
     supermarche_tiers = get_or_create_tiers(cursor, "Supermarche Leclerc", id_user)
     bailleur_tiers = get_or_create_tiers(cursor, "Proprietaire Bailleur", id_user)
+    id_compte_courant = 1
+    id_compte_epargne = 2
 
     while current_date < end_date:
         annee = current_date.year - 2017
         inflation = (1 + inflation_rate) ** annee
 
         # Salaire mensuel
-        salaire = round(random.uniform(2200, 2800) * inflation, 2)
+        salaire = 2800 * inflation
         cursor.execute("""
             INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
             VALUES (%s, %s, %s, %s, %s, %s, 'C')
         """, (
             date(current_date.year, current_date.month, 25),
-            id_compte,
+            id_compte_courant,
             salaire_tiers,
             categorie_ids["Revenus"],
             souscategorie_ids["Salaire"],
@@ -120,61 +119,185 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
         ))
 
         # Loyer mensuel
-        loyer = round(random.uniform(850, 1100) * inflation, 2)
+        loyer = 850 * inflation
         cursor.execute("""
             INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
             VALUES (%s, %s, %s, %s, %s, %s, 'D')
         """, (
             date(current_date.year, current_date.month, 2),
-            id_compte,
+            id_compte_courant,
             bailleur_tiers,
             categorie_ids["Logement"],
             souscategorie_ids["Loyer"],
             loyer
         ))
 
-        # Courses hebdo
+        # Electricite mensuelle
+        electricite = 60 * inflation
+        cursor.execute("""
+            INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+            VALUES (%s, %s, %s, %s, %s, %s, 'D')
+        """, (
+            date(current_date.year, current_date.month, 5),
+            id_compte_courant,
+            get_or_create_tiers(cursor, "EDF", id_user),
+            categorie_ids["Logement"],
+            souscategorie_ids["electricite"],
+            electricite
+        ))
+
+        # Internet mensuel
+        internet = 30 * inflation
+        cursor.execute("""
+            INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+            VALUES (%s, %s, %s, %s, %s, %s, 'D')
+        """, (
+            date(current_date.year, current_date.month, 10),
+            id_compte_courant,
+            get_or_create_tiers(cursor, "Orange", id_user),
+            categorie_ids["Logement"],
+            souscategorie_ids["Internet"],
+            internet
+        ))
+
+        # Courses hebdomadaires
         for week in range(4):
-            d = current_date + timedelta(days=week * 7 + 3)
+            d = current_date + timedelta(days=week * 6 + 3)
             montant = round(random.uniform(50, 130) * inflation, 2)
             cursor.execute("""
                 INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
                 VALUES (%s, %s, %s, %s, %s, %s, 'D')
             """, (
                 d,
-                id_compte,
+                id_compte_courant,
                 supermarche_tiers,
                 categorie_ids["Alimentation"],
                 souscategorie_ids["Courses"],
                 montant
             ))
 
-        # Loisirs
+        # Restaurants mensuels
         for _ in range(random.randint(1, 2)):
             d = current_date + timedelta(days=random.randint(5, 25))
-            montant = round(random.uniform(20, 100) * inflation, 2)
+            montant = round(random.uniform(30, 150) * inflation, 2)
             cursor.execute("""
                 INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
                 VALUES (%s, %s, %s, %s, %s, %s, 'D')
             """, (
                 d,
-                id_compte,
+                id_compte_courant,
+                random.choice(autres_tiers_ids),
+                categorie_ids["Alimentation"],
+                souscategorie_ids["Restaurants"],
+                montant
+            ))
+        
+        # Essence mensuelle
+        for _ in range(random.randint(1, 2)):
+            d = current_date + timedelta(days=random.randint(5, 25))
+            montant = round(random.uniform(40, 120) * inflation, 2)
+            cursor.execute("""
+                INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+                VALUES (%s, %s, %s, %s, %s, %s, 'D')
+            """, (
+                d,
+                id_compte_courant,
+                random.choice(autres_tiers_ids),
+                categorie_ids["Transport"],
+                souscategorie_ids["Essence"],
+                montant
+            ))
+
+        # Transport en commun mensuel
+        for _ in range(random.randint(1, 2)):
+            d = current_date + timedelta(days=random.randint(5, 25))
+            montant = round(random.uniform(30, 80) * inflation, 2)
+            cursor.execute("""
+                INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+                VALUES (%s, %s, %s, %s, %s, %s, 'D')
+            """, (
+                d,
+                id_compte_courant,
+                random.choice(autres_tiers_ids),
+                categorie_ids["Transport"],
+                souscategorie_ids["Train"],
+                montant
+            ))
+
+        # Cinema mensuel
+        for _ in range(random.randint(1, 2)):
+            d = current_date + timedelta(days=random.randint(5, 25))
+            montant = round(random.uniform(20, 50) * inflation, 2)
+            cursor.execute("""
+                INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+                VALUES (%s, %s, %s, %s, %s, %s, 'D')
+            """, (
+                d,
+                id_compte_courant,
                 random.choice(autres_tiers_ids),
                 categorie_ids["Loisirs"],
                 souscategorie_ids["Cinema"],
                 montant
             ))
 
+        # Jeux mensuels
+        for _ in range(random.randint(1, 2)):
+            d = current_date + timedelta(days=random.randint(5, 25))
+            montant = round(random.uniform(10, 60) * inflation, 2)
+            cursor.execute("""
+                INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+                VALUES (%s, %s, %s, %s, %s, %s, 'D')
+            """, (
+                d,
+                id_compte_courant,
+                random.choice(autres_tiers_ids),
+                categorie_ids["Loisirs"],
+                souscategorie_ids["Jeux"],
+                montant
+            ))
+        
+        # Voyages annuels
+        if current_date.month == 6:  # Juin pour les vacances d'été
+            montant = round(random.uniform(500, 2000) * inflation, 2)
+            d = current_date + timedelta(days=random.randint(1, 15))
+            cursor.execute("""
+                INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+                VALUES (%s, %s, %s, %s, %s, %s, 'D')
+            """, (
+                d,
+                id_compte_epargne,
+                random.choice(autres_tiers_ids),
+                categorie_ids["Loisirs"],
+                souscategorie_ids["Voyages"],
+                montant
+            ))
+
+        # Epargne mensuelle (total du reste - 200 euros)
+        total_depenses = cursor.execute("""
+            SELECT SUM(montant) FROM Mouvements
+            WHERE idCompte = %s AND typeMouvement = 'D' AND dateMouvement >= %s AND dateMouvement < %s
+        """, (id_compte_courant, current_date, (current_date + timedelta(days=30))))
+        total_depenses = cursor.fetchone()[0] or 0
+        epargne = max(0, float(salaire) - float(total_depenses) - 200)  # Assurer qu'on ne met pas moins de 0 euros
+        if epargne > 0:
+            # l'épargne est un virement (dans la table Virements) vers le compte épargne
+            cursor.execute("""
+                INSERT INTO Virements (idCompteDebit, idCompteCredit, montant, dateVirement, idCategorie)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                id_compte_courant,
+                id_compte_epargne,
+                epargne,
+                date(current_date.year, current_date.month, 24),
+                categorie_ids["Epargne"]
+            ))
+        
         # Avancer d'un mois
         current_date = (current_date.replace(day=1) + timedelta(days=32)).replace(day=1)
 
 
 def generate_virements(cursor, id_user, compte1_id):
-    # Crée un autre compte épargne
-    cursor.execute("INSERT INTO Comptes (descriptionCompte, nomBanque, idUtilisateur) VALUES (%s, %s, %s)",
-                   ("Livret A", "BNP Paribas", id_user))
-    compte2_id = cursor.lastrowid
-
+    compte2_id = 2
     # Get categorie "Epargne" for Virements
     cursor.execute("SELECT idCategorie FROM Categories WHERE nomCategorie = 'Epargne'")
     id_categorie_epargne = cursor.fetchone()[0]
@@ -200,7 +323,7 @@ def main():
     autres_tiers_ids = create_tiers(cursor, id_user)
 
     generate_mouvements(cursor, id_user, id_compte_courant, categorie_ids, souscategorie_ids, autres_tiers_ids)
-    generate_virements(cursor, id_user, id_compte_courant)
+    #generate_virements(cursor, id_user, id_compte_courant)
 
     conn.commit()
     cursor.close()

@@ -1,5 +1,6 @@
 CREATE TABLE `Temps` (
   `id` INT PRIMARY KEY AUTO_INCREMENT,
+  `date` DATE,
   `jour` INT NOT NULL,
   `mois` INT NOT NULL,
   `annee` INT NOT NULL,

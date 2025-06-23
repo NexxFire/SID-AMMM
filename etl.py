@@ -1,5 +1,7 @@
 import mysql.connector
 from datetime import timedelta
+from collections import defaultdict
+
 
 def connect_db(host, port, user, password, database):
     return mysql.connector.connect(
@@ -51,9 +53,10 @@ def etl_comptes(source_cursor, target_cursor):
         """, (row["nomBanque"], row["descriptionCompte"]))
 
 def etl_temps(source_cursor, target_cursor):
+    # Récupérer la date min et max dans les mouvements
     source_cursor.execute("""
         SELECT MIN(DATE(dateMouvement)) AS min_date,
-            MAX(DATE(dateMouvement)) AS max_date
+               MAX(DATE(dateMouvement)) AS max_date
         FROM Mouvements
     """)
     row = source_cursor.fetchone()
@@ -71,16 +74,20 @@ def etl_temps(source_cursor, target_cursor):
         annee = current_date.year
         jourJulien = current_date.timetuple().tm_yday
         nomJour = current_date.strftime('%A')
+        dateComplete = current_date.strftime('%Y-%m-%d')
+
+        # Insertion dans la table Temps avec la date complète
         target_cursor.execute("""
-            INSERT INTO Temps (id, jour, mois, annee, jourJulien, nomJour)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (id_counter, jour, mois, annee, jourJulien, nomJour))
+            INSERT INTO Temps (id, date, jour, mois, annee, jourJulien, nomJour)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (id_counter, dateComplete, jour, mois, annee, jourJulien, nomJour))
 
         id_date_map[str(current_date)] = id_counter
         id_counter += 1
         current_date += timedelta(days=1)
 
     return id_date_map
+
 
 def etl_virements(source_cursor, target_cursor, id_date_map):
     source_cursor.execute("SELECT * FROM Virements")
@@ -120,40 +127,44 @@ def etl_transactions(source_cursor, target_cursor, id_date_map):
             row["idCompte"]
         ))
 
-def etl_soldes(source_cursor, target_cursor):
-    # Étape 1 : récupérer toutes les dates dans l'ordre (depuis la table Temps)
-    target_cursor.execute("SELECT id, annee, mois, jour FROM Temps ORDER BY annee, mois, jour")
-    dates = target_cursor.fetchall()
 
-    # Étape 2 : récupérer tous les comptes
+def etl_soldes(source_cursor, target_cursor):
+    # Étape 1 : Récupérer toutes les dates dans l'ordre
+    target_cursor.execute("SELECT id, date FROM Temps ORDER BY date")
+    dates = target_cursor.fetchall()
+    date_ids = [(row["date"], row["id"]) for row in dates]
+
+    # Étape 2 : Récupérer tous les comptes
     source_cursor.execute("SELECT idCompte FROM Comptes")
     comptes = source_cursor.fetchall()
 
     for compte_row in comptes:
         idCompte = compte_row["idCompte"]
-        solde = 1000.0  # solde initial
+        solde = 2800  # solde initial arbitraire
 
-        for date_row in dates:
-            idDate = date_row[0]
-            annee, mois, jour = date_row[1], date_row[2], date_row[3]
-            date_str = f"{annee:04d}-{mois:02d}-{jour:02d}"
+        # Étape 3 : Récupérer tous les mouvements du compte, triés par date
+        source_cursor.execute("""
+            SELECT DATE(dateMouvement) AS dateMouvement, typeMouvement, montant
+            FROM Mouvements
+            WHERE idCompte = %s
+            ORDER BY dateMouvement
+        """, (idCompte,))
+        mouvements_raw = source_cursor.fetchall()
 
-            # Récupérer tous les mouvements de ce compte à cette date
-            source_cursor.execute("""
-                SELECT typeMouvement, montant 
-                FROM Mouvements 
-                WHERE idCompte = %s AND DATE(dateMouvement) = %s
-            """, (idCompte, date_str))
+        # Grouper les mouvements par date pour accès rapide
+        mouvements_par_date = defaultdict(list)
+        for m in mouvements_raw:
+            date_m = m["dateMouvement"]
+            if m["typeMouvement"] == 'C':
+                mouvements_par_date[date_m].append(float(m["montant"]))
+            else:
+                mouvements_par_date[date_m].append(-float(m["montant"]))
 
-            mouvements = source_cursor.fetchall()
+        # Étape 4 : Calculer les soldes jour par jour
+        for date_obj, idDate in date_ids:
+            mouvements_du_jour = mouvements_par_date.get(date_obj, [])
+            solde += sum(mouvements_du_jour)
 
-            for m in mouvements:
-                if m["typeMouvement"] == 'C':  # Crédit
-                    solde += float(m["montant"])
-                else:  # Débit
-                    solde -= float(m["montant"])
-
-            # Insérer le solde du jour
             target_cursor.execute("""
                 INSERT INTO Soldes (solde, idDate, idCompte)
                 VALUES (%s, %s, %s)
@@ -166,7 +177,7 @@ def main():
     target_conn = connect_db("localhost", 3308, "root", "rootpassword", "db")
 
     source_cursor = source_conn.cursor(dictionary=True)
-    target_cursor = target_conn.cursor()
+    target_cursor = target_conn.cursor(dictionary=True)
 
     # ETL process
     clear_target_database(target_cursor)
