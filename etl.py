@@ -98,7 +98,7 @@ def etl_transactions(source_cursor, target_cursor, id_date_map):
         date = row["dateMouvement"].strftime('%Y-%m-%d')
         idDate = id_date_map.get(date)
         type_mvt = row["typeMouvement"]
-        montant = row["montant"] if type_mvt == 'C' else -1 * row["montant"]
+        # montant = row["montant"] if type_mvt == 'C' else -1 * row["montant"]
 
         nomTiers = None
         if row["idTiers"]:
@@ -111,7 +111,7 @@ def etl_transactions(source_cursor, target_cursor, id_date_map):
             INSERT INTO Transactions (montant, idDate, type, idCategorie, idSousCategorie, nomTiers, idCompte)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
-            float(montant),
+            row["montant"],
             idDate,
             type_mvt,
             row["idCategorie"],

@@ -221,7 +221,7 @@ BEGIN
       idCompte, montant, typeMouvement, idVirement, dateMouvement, idCategorie
   )
   VALUES (
-      NEW.idCompteDebit, (NEW.montant * -1), 'D', NEW.idVirement, NEW.dateVirement, idEpargne
+      NEW.idCompteDebit, (NEW.montant), 'D', NEW.idVirement, NEW.dateVirement, idEpargne
   );
 
   -- Insertion du mouvement crédit (compte crédité)

@@ -120,7 +120,7 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
         ))
 
         # Loyer mensuel
-        loyer = round(random.uniform(850, 1100) * inflation, 2)
+        loyer = -1 * round(random.uniform(850, 1100) * inflation, 2)
         cursor.execute("""
             INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
             VALUES (%s, %s, %s, %s, %s, %s, 'D')
@@ -136,7 +136,7 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
         # Courses hebdo
         for week in range(4):
             d = current_date + timedelta(days=week * 7 + 3)
-            montant = round(random.uniform(50, 130) * inflation, 2)
+            montant = -1 * round(random.uniform(50, 130) * inflation, 2)
             cursor.execute("""
                 INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
                 VALUES (%s, %s, %s, %s, %s, %s, 'D')
