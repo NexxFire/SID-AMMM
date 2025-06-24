@@ -100,6 +100,19 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
     id_compte_courant = 1
     id_compte_epargne = 2
 
+    # ajouter un premier salaire le 1er janvier 2017
+    cursor.execute("""
+        INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
+        VALUES (%s, %s, %s, %s, %s, %s, 'C')
+    """, (
+        date(2017, 1, 1),
+        id_compte_courant,
+        salaire_tiers,
+        categorie_ids["Revenus"],
+        souscategorie_ids["Salaire"],
+        2800.00  # Salaire initial
+    ))
+
     while current_date < end_date:
         annee = current_date.year - 2017
         inflation = (1 + inflation_rate) ** annee
@@ -273,14 +286,18 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
             ))
 
         # Epargne mensuelle (total du reste - 200 euros)
-        total_depenses = cursor.execute("""
-            SELECT SUM(montant) FROM Mouvements
-            WHERE idCompte = %s AND typeMouvement = 'D' AND dateMouvement >= %s AND dateMouvement < %s
-        """, (id_compte_courant, current_date, (current_date + timedelta(days=30))))
-        total_depenses = cursor.fetchone()[0] or 0
-        epargne = max(0, float(salaire) - float(total_depenses) - 200)  # Assurer qu'on ne met pas moins de 0 euros
+        # Récupération du solde actuel
+        cursor.execute("""
+            SELECT COALESCE(SUM(CASE WHEN typeMouvement = 'C' THEN montant ELSE -montant END), 0)
+            FROM Mouvements
+            WHERE idCompte = %s
+        """, (id_compte_courant,))
+        solde = float(cursor.fetchone()[0] or 0)
+
+        # Calcul de l’épargne : tout ce qui dépasse 200 €
+        epargne = max(0, solde - 200)
+
         if epargne > 0:
-            # l'épargne est un virement (dans la table Virements) vers le compte épargne
             cursor.execute("""
                 INSERT INTO Virements (idCompteDebit, idCompteCredit, montant, dateVirement, idCategorie)
                 VALUES (%s, %s, %s, %s, %s)
@@ -291,6 +308,7 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
                 date(current_date.year, current_date.month, 24),
                 categorie_ids["Epargne"]
             ))
+
         
         # Avancer d'un mois
         current_date = (current_date.replace(day=1) + timedelta(days=32)).replace(day=1)
@@ -328,7 +346,7 @@ def main():
     conn.commit()
     cursor.close()
     conn.close()
-    print("✅ Donnees generees avec succès.")
+    print("Donnees generees avec succès.")
 
 
 if __name__ == "__main__":

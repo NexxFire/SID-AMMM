@@ -140,7 +140,7 @@ def etl_soldes(source_cursor, target_cursor):
 
     for compte_row in comptes:
         idCompte = compte_row["idCompte"]
-        solde = 2800  # solde initial arbitraire
+        solde = 0  # solde initial arbitraire
 
         # Étape 3 : Récupérer tous les mouvements du compte, triés par date
         source_cursor.execute("""
@@ -194,6 +194,8 @@ def main():
     target_cursor.close()
     source_conn.close()
     target_conn.close()
+
+    print("Donnees generees avec succès.")
 
 if __name__ == "__main__":
     main()
