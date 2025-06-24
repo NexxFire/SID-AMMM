@@ -100,19 +100,6 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
     id_compte_courant = 1
     id_compte_epargne = 2
 
-    # ajouter un premier salaire le 1er janvier 2017
-    cursor.execute("""
-        INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
-        VALUES (%s, %s, %s, %s, %s, %s, 'C')
-    """, (
-        date(2017, 1, 1),
-        id_compte_courant,
-        salaire_tiers,
-        categorie_ids["Revenus"],
-        souscategorie_ids["Salaire"],
-        2800.00  # Salaire initial
-    ))
-
     while current_date < end_date:
         annee = current_date.year - 2017
         inflation = (1 + inflation_rate) ** annee
@@ -123,7 +110,7 @@ def generate_mouvements(cursor, id_user, id_compte, categorie_ids, souscategorie
             INSERT INTO Mouvements (dateMouvement, idCompte, idTiers, idCategorie, idSousCategorie, montant, typeMouvement)
             VALUES (%s, %s, %s, %s, %s, %s, 'C')
         """, (
-            date(current_date.year, current_date.month, 25),
+            date(current_date.year, current_date.month, 1),
             id_compte_courant,
             salaire_tiers,
             categorie_ids["Revenus"],

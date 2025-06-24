@@ -164,6 +164,7 @@ def etl_soldes(source_cursor, target_cursor):
         for date_obj, idDate in date_ids:
             mouvements_du_jour = mouvements_par_date.get(date_obj, [])
             solde += sum(mouvements_du_jour)
+            print (f"Date: {date_obj}, Compte: {idCompte}, Solde: {solde}\n")
 
             target_cursor.execute("""
                 INSERT INTO Soldes (solde, idDate, idCompte)
